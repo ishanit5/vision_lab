@@ -7,7 +7,7 @@ import pdb
 # 0,0  X  > > > > >
 #
 #  Y
-# 
+#
 #  v  This is the image. Y increases downwards, X increases rightwards
 #  v  Please return bounding boxes as ((xmin, ymin), (xmax, ymax))
 #  v
@@ -68,8 +68,31 @@ def cd_sift_ransac(img, template):
 		pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
 
 		########## YOUR CODE STARTS HERE ##########
-		
+
 		x_min = y_min = x_max = y_max = 0
+		dst = cv2.perspectiveTransform(pts,M)
+		print("bounding box?")
+		print(dst)
+		means = np.mean(dst, axis=0)
+		for el in dst:
+			x_coord = int(el[0][0])
+			y_coord = int(el[0][1])
+			if (x_coord > means[0][0] and y_coord > means[0][1]):
+				x_max = x_coord
+				y_max = y_coord
+			if (x_coord < means[0][0] and y_coord < means[0][1]):
+				x_min = x_coord
+				y_min = y_coord
+		#cv2.namedWindow(winname)        # Create a named window
+		#cv2.moveWindow(winname, 40,30)  # Move it to (40,30)
+		#cv2.imread(img)
+		cv2.line(img, (int(dst[0,0,0]), int(dst[0,0,1])), (int(dst[1,0,0]), int(dst[1,0,1])), (0,255,0), 4)
+		cv2.line(img, (int(dst[1,0,0]), int(dst[1,0,1])), (int(dst[2,0,0]), int(dst[2,0,1])), (0,255,0), 4)
+		cv2.line(img, (int(dst[2,0,0]), int(dst[2,0,1])), (int(dst[3,0,0]), int(dst[3,0,1])), (0,255,0), 4)
+		cv2.line(img, (int(dst[3,0,0]), int(dst[3,0,1])), (int(dst[0,0,0]), int(dst[0,0,1])), (0,255,0), 4)
+		cv2.imshow("box", img)
+		cv2.waitKey()
+		#cv2.destroyAllWindows()
 
 		########### YOUR CODE ENDS HERE ###########
 
@@ -92,7 +115,7 @@ def cd_template_matching(img, template):
 				(x1, y1) is the bottom left of the bbox and (x2, y2) is the top right of the bbox
 	"""
 	template_canny = cv2.Canny(template, 50, 200)
-	
+
 	# Perform Canny Edge detection on test image
 	grey_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 	img_canny = cv2.Canny(grey_img, 50, 200)
@@ -104,6 +127,7 @@ def cd_template_matching(img, template):
 	best_match = None
 
 	# Loop over different scales of image template
+	bounding_box = ((0,0),(0,0))
 	for scale in np.linspace(1.5, .5, 50):
 		# Resize the image
 		resized_template = imutils.resize(template_canny, width = int(template_canny.shape[1] * scale))
@@ -111,13 +135,17 @@ def cd_template_matching(img, template):
 		# Check to see if test image is now smaller than template image
 		if resized_template.shape[0] > img_height or resized_template.shape[1] > img_width:
 			continue
-		
+
 		########## YOUR CODE STARTS HERE ##########
 		# Use OpenCV template matching functions to find the best match
 		# across template scales.
 		# Remember to resize the bounding box using the highest scoring scale
 		# x1,y1 pixel will be accurate, but x2,y2 needs to be correctly scaled
-		bounding_box = ((0,0),(0,0))
+		result = cv2.matchTemplate(img_canny, resized_template, cv2.TM_CCORR_NORMED)
+		minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(result)
+		if (best_match == None or maxVal > best_match):
+			best_match = maxVal
+			bounding_box = ((maxLoc[0], maxLoc[1]), (int(maxLoc[0]+w*scale), int(maxLoc[1]+h*scale)))
 		########### YOUR CODE ENDS HERE ###########
 
 	return bounding_box
